@@ -1,0 +1,83 @@
+<Bundle name="MicrosoftHPCApp" version="2.0" system="false">
+ <status>UNINSTALLE</status>
+ <owner>ben.newton@excelian.co</owner>
+  <services>
+    <Service>
+      <name>Overvie</name>
+    	<resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+    	<instanceCount>-</instanceCount>
+    	<pauseSeconds>
+      </pauseSeconds>
+    	<script>powerShellRunner.groovy ClusterOverview.ps</script>
+    </Service>
+    <Service>
+      <name>ClusterPropert</name>
+    	<resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+    	<instanceCount>-</instanceCount>
+    	<pauseSeconds>1440</pauseSeconds>
+    	<script>powerShellRunner.groovy ClusterProperty.ps</script>
+    </Service>
+    <Service>
+      <name>Utilisatio</name>
+  		<resourceSelection>Zone contains hpcheadnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+  		<instanceCount>-</instanceCount>
+  		<pauseSeconds>1440</pauseSeconds>
+  		<script>powerShellRunner.groovy ClusterUtilisation.ps</script>
+    </Service>
+    <Service>
+      <name>Job</name>
+  		<resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+  		<instanceCount>-</instanceCount>
+  		<pauseSeconds>720</pauseSeconds>
+  		<script>powerShellRunner.groovy JobHistory.ps</script>
+    </Service>
+    <Service>
+      <name>CallIndividual</name>
+		  <resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+    	<instanceCount>-</instanceCount>
+    	<pauseSeconds>
+      </pauseSeconds>
+    	<script>powerShellRunner.groovy LiveCallIndividuals.ps</script>
+    </Service>
+    <Service>
+      <name>CallTotal</name>
+		  <resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+    	<instanceCount>-</instanceCount>
+    	<pauseSeconds>
+      </pauseSeconds>
+    	<script>powerShellRunner.groovy LiveCallTotals.ps</script>
+    </Service>
+    <Service>
+      <name>Nod</name>
+		  <resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+		  <instanceCount>-</instanceCount>
+		  <pauseSeconds>
+      </pauseSeconds>
+		  <script>powerShellRunner.groovy NodeMetrics.ps</script>
+    </Service>
+    <Service>
+      <name>SchedulerEvent</name>
+		  <resourceSelection>Zone contains headnod</resourceSelection>
+      <fork>fals</fork>
+      <background>tru</background>
+    	<instanceCount>-</instanceCount>
+    	<pauseSeconds>
+      </pauseSeconds>
+    	<script>powerShellRunner.groovy schedulerEvents.ps</script>
+    </Service>
+  </services>
+</Bundle>
