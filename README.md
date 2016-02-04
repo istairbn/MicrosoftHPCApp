@@ -52,3 +52,9 @@ hpc_Usage = For each Day, a summary of Cluster Utilisation and Availability
 
 hpc_Metrics = For each day, an aggregate count of jobs, calls and grid run-time in seconds and minutes for each service type.
 #DEPRECATED - These stats have been moved to hpc_JobHistory
+
+
+Note that this version 2 - whilst version 1 data will still be typed and ingested, the Workspaces will all use the version 2 data.
+The main improvements are:
+- Use of the HPCServerTools module - this abstracts the underlying logic from the Logscape scripts and centralizes it - making maintenance easier. Check out istairbn/MicrosoftHPCServerTools for the latest commits to that project. 
+- Removal of SQL config dependency - the new App assumes deployment to the headnode and uses the database connection permissions that the Scheduler uses. 
