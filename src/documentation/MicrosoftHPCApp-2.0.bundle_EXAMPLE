@@ -1,0 +1,96 @@
+<Bundle name="MicrosoftHPCApp" version="2.0" system="false">
+ <status>UNINSTALLED</status>
+ <owner>ben.newton@excelian.com</owner>
+  <services>
+    <Service>
+      <name>Overview</name>
+    	<resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+    	<instanceCount>-1</instanceCount>
+    	<pauseSeconds>0</pauseSeconds>
+    	<script>powerShellRunner.groovy ClusterOverview.ps1</script>
+    </Service>
+    <Service>
+      <name>ClusterProperty</name>
+    	<resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+    	<instanceCount>-1</instanceCount>
+    	<pauseSeconds>1440</pauseSeconds>
+    	<script>powerShellRunner.groovy ClusterProperty.ps1</script>
+    </Service>
+    <Service>
+      <name>Utilisation</name>
+  		<resourceSelection>Zone contains hpcheadnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+  		<instanceCount>-1</instanceCount>
+  		<pauseSeconds>1440</pauseSeconds>
+  		<script>powerShellRunner.groovy ClusterUtilisation.ps1</script>
+    </Service>
+    <Service>
+      <name>Jobs</name>
+  		<resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+  		<instanceCount>-1</instanceCount>
+  		<pauseSeconds>720</pauseSeconds>
+  		<script>powerShellRunner.groovy JobHistory.ps1</script>
+    </Service>
+    <Service>
+      <name>CallIndividuals</name>
+		  <resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+    	<instanceCount>-1</instanceCount>
+    	<pauseSeconds>0</pauseSeconds>
+    	<script>powerShellRunner.groovy LiveCallIndividuals.ps1</script>
+    </Service>
+    <Service>
+      <name>CallTotals</name>
+		  <resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+    	<instanceCount>-1</instanceCount>
+    	<pauseSeconds>0</pauseSeconds>
+    	<script>powerShellRunner.groovy LiveCallTotals.ps1</script>
+    </Service>
+    <Service>
+      <name>Node</name>
+		  <resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+		  <instanceCount>-1</instanceCount>
+		  <pauseSeconds>0</pauseSeconds>
+		  <script>powerShellRunner.groovy NodeMetrics.ps1</script>
+    </Service>
+    <Service>
+      <name>SchedulerEvent</name>
+		  <resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+    	<instanceCount>-1</instanceCount>
+    	<pauseSeconds>0</pauseSeconds>
+    	<script>powerShellRunner.groovy schedulerEvents.ps1</script>
+    </Service>
+    <Service>
+      <name>AzureNodeBalancer</name>
+      <resourceSelection>Zone contains headnode</resourceSelection>
+      <fork>false</fork>
+      <background>true</background>
+      <instanceCount>-1</instanceCount>
+      <pauseSeconds>0</pauseSeconds>
+      <script>powerShellRunner.groovy AzureNodeBalancer.ps1</script>
+    </Service>
+    <!--Service>
+      <name>HPCParser</name>
+      <resourceSelection>type contains hpc</resourceSelection>
+      <fork>true</fork>
+      <background>true</background>
+      <instanceCount>-1</instanceCount>
+      <pauseSeconds>14400</pauseSeconds>
+      <script>logparser.groovy BATCHparser.properties</script>
+    </Service-->
+  </services>
+</Bundle>
