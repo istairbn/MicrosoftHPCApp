@@ -5,10 +5,13 @@
 #########################################################################
 
 The Microsoft HPC App 2.0 is designed to provide monitoring of an HPC Server 2012 SP1 (or greater) environment. 
+Note: The workspaces in this version supercede the 1.0 App. The older data types are included (marked deprecated) but they will not be used for display purposes.   
 
-The three main sources of information: 
+The two main sources of information: 
 	-Powershell: running the cmndlet to pull data from the HeadNode. 
 	-Logs: Uncompressing the HPC Server log files. 
+	Deprecated
+	-The old SQL scripts. These have been replaced by Powershell scripts relying on the Schedulers access
 
 This app runs scripts and SQL queries at various times, creating output files and then allowing Logscape to ingest them directly.
 
@@ -24,7 +27,7 @@ However, ensure that there is only one .bundle file in the app when deployed!
 
 CONFIGURATION
 
-1. Edit the Bundle file to ensure you are running the scripts on the Headnode and on the preferred timeframe. 
+1. Edit the Bundle file to ensure you are running the scripts on the Headnode and on the preferred timeframe. If you have already configured your Headnode with headnode in the role (for example: dev.hpcheadnode.Forwarder) then it will work without configuration.  
 	For more on Bundle files, check the Logscape documentation.
 2. If you are using the LogParser, follow the configuration in the separate documentation.
 
