@@ -27,7 +27,10 @@ However, ensure that there is only one .bundle file in the app when deployed!
 
 CONFIGURATION
 
-1. Edit the Bundle file to ensure you are running the scripts on the Headnode and on the preferred timeframe. If you have already configured your Headnode with headnode in the role (for example: dev.hpcheadnode.Forwarder) then it will work without configuration.  
+1. EITHER
+  Edit the Bundle file to ensure you are running the scripts on the Headnode and on the preferred timeframe. If you have already configured your Headnode with headnode in the role (for example: dev.hpcheadnode.Forwarder) then it will work without configuration.  
+OR
+Deploy an override.properties file (sample provided) and redeploy the App
 	For more on Bundle files, check the Logscape documentation.
 2. If you are using the LogParser, follow the configuration in the separate documentation.
 
