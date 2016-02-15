@@ -929,10 +929,12 @@ Function Get-HPCClusterJobRequirements{
 
 
     ForEach($Job in $Jobs){
-        $JobGroups = $Job.NodeGroups.split(",")
-        ForEach($GP in $JobGroups){
-            If($RequiredGroups -notcontains $GP){
-                $RequiredGroups += $GP
+        If($Job.NodeGroups.Count -ne 0){
+            $JobGroups = $Job.NodeGroups.split(",")
+            ForEach($GP in $JobGroups){
+                If($RequiredGroups -notcontains $GP){
+                    $RequiredGroups += $GP
+                }
             }
         }
 
@@ -1328,14 +1330,20 @@ Function Get-HPCClusterNodesRequired{
                 $Nodes += Get-HPCNode -Scheduler $Scheduler -Name $ReqNode
             }
         }
-        ForEach($Group in $Requirements.RequiredGroups){
-            If($Status.ExcludedGroups -notcontains $Group){
-                $Nodes += Get-HPCNode -Scheduler $Scheduler -GroupName $Requirements.RequiredGroups
+        If($Requirements.RequiredGroups.Count -ne 0){
+            ForEach($Group in $Requirements.RequiredGroups){
+                If($Status.ExcludedGroups -notcontains $Group){
+                    $Nodes += Get-HPCNode -Scheduler $Scheduler -GroupName $Requirements.RequiredGroups
+                }
             }
         }
+        Else{
+            $Nodes += Get-HPCNode -Scheduler $Scheduler
+        }
+        
 
-            $Nodes = @($Nodes | ? { $Status.ExcludedNodes -notcontains $_.NetBiosName})
-            $Nodes = @($Nodes | ? { $Status.ExcludedNodeTemplates -notcontains $_.Template})
+        $Nodes = @($Nodes | ? { $Status.ExcludedNodes -notcontains $_.NetBiosName})
+        $Nodes = @($Nodes | ? { $Status.ExcludedNodeTemplates -notcontains $_.Template})
 
         Write-Output $Nodes
 }
@@ -3354,10 +3362,13 @@ Function Get-HPCClusterJobHistoryOutput{
         }
         
         $NOW = (Get-Date).addSeconds(-1 * $duration)
+        $NOW = $NOW.ToString("dd/MM/yyyy HH:mm:ss")
 	    Write-Verbose "SinceDate $SINCE"  
+        Write-Verbose "NowDate $NOW"
         
         Try{
-            Get-HPCJobHistory -Scheduler $Scheduler -StartDate $SINCE -EndDate $NOW 
+            Write-Verbose "Collection"
+            Get-HPCJobHistory -Scheduler $Scheduler -StartDate $SINCE -EndDate $NOW #-verbose
         }
         Catch [System.Exception]{
             Write-Error $Error.ToString()
@@ -3431,7 +3442,7 @@ Function Export-HPCClusterFullJobHistory{
         $Error.Clear()
     }
 
-    $Output = Get-HPCClusterJobHistoryOutput -Scheduler $Scheduler -LastKnownPositionFile $LastKnownPositionFile -PositionFolder $PositionFolder -Delimiter $Delimiter  
+    $Output = Get-HPCClusterJobHistoryOutput -Scheduler $Scheduler -LastKnownPositionFile $LastKnownPositionFile -PositionFolder $PositionFolder -Delimiter $Delimiter #-verbose
 
     If($Output.Count -ne 0){
         
