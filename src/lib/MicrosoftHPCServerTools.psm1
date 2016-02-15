@@ -1522,7 +1522,7 @@ Function Start-HPCClusterNodes{
                     }
                 }
                 $GrowthSuccess = $True
-                Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:COMPLETE GrowthSuccess:$GrowthSuccess Msg:`"Node Growth Complete`""
+                Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:GROWN GrowthSuccess:$GrowthSuccess Msg:`"Node Growth Complete`""
             }
 
         else{
@@ -1729,7 +1729,7 @@ Function Remove-HPCClusterGroups{
             Set-HpcNodeState -Scheduler $Scheduler -Node $NodesToGrow -State offline -Force -errorAction SilentlyContinue
             Remove-HpcGroup -Scheduler $Scheduler -Name $ToStrip -Node $NodesToGrow -Confirm:$false
 
-            Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:COMPLETED"
+            Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:STRIPPED"
             
             If($OutputNodes){
                 Write-Output $NodesToGrow
@@ -1834,7 +1834,7 @@ Function Get-HPCClusterShrinkCheck{
         }
 
         Else{
-           Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:COMPLETE ShrinkState:$SHRINK"
+           Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:NOTHINGShrinkState:$SHRINK"
         }
         
         If($IdleNodes.Count -ne 0){
@@ -1851,7 +1851,7 @@ Function Get-HPCClusterShrinkCheck{
        }
 
        Else{
-           Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:COMPLETE ShrinkState:$SHRINK"
+           Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:NOTHING ShrinkState:$SHRINK"
        }
     $Checked = New-Object -TypeName PSObject -Property @{Scheduler=$Scheduler;SHRINK=$SHRINK;IdleNodes=$idleNodes;NodesList=$State.IdleNodes;}
     Write-Output $Checked
@@ -2699,6 +2699,9 @@ Param(
             Write-LogInfo "Action:NOGROWTH"
         }
     }
+    Else{
+        Write-LogInfo "Action:NOTHING GrowState:False"
+    }
     Write-Output $HasGrown
 }
 #A Hybrid cluster scale up. First, it will attempt to use any available on premise nodes. If none are available, it will use the Azure Nodes. This only increases, it does not attempt to decrease. Not a loop!
@@ -2962,7 +2965,7 @@ Param(
     }
 
     Else{
-        Write-LogInfo "Action:Nothing No Growth Required"
+        Write-LogInfo "Action:NOTHING No Growth Required"
         Invoke-HPCClusterHybridShrink -LogFilePrefix $LogFilePrefix -Logging $Logging -Scheduler $Scheduler -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -UndeployAzure $UndeployAzure -NodeTemplates $NodeTemplates
     }
 }
