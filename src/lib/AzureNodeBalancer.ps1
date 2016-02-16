@@ -150,16 +150,16 @@ While($elapsed.Elapsed.Hours -lt 1){
         If($PreviousIdleNodeCount -ne $IdleNodeCount){
             $PreviousIdleNodeCount = $IdleNodeCount
             $COUNTER = 0
-            Write-LogInfo "Counter:$COUNTER ShrinkThreshold:$ShrinkThreshold IdleNodes:$IdleNodeCount ACTION:NODECOUNTCHANGE" 
+            Write-LogInfo "Counter:$COUNTER ShrinkThreshold:$ShrinkThreshold IdleNodes:$IdleNodeCount Action:NODECOUNTCHANGE" 
         }
         Else{
             $COUNTER += 1
-            Write-LogInfo "Counter:$COUNTER  ShrinkThreshold:$ShrinkThreshold IdleNodes:$IdleNodeCount ACTION:NODECOUNTCONSTANT"
+            Write-LogInfo "Counter:$COUNTER  ShrinkThreshold:$ShrinkThreshold IdleNodes:$IdleNodeCount Action:NODECOUNTCONSTANT"
         }
     }
     Else{
         $PreviousIdleNodeCount = 0
-        Write-LogInfo "ACTION:NOTHING"
+        Write-LogInfo "Action:NOTHING"
     }
     $SHRINK = $False
 
