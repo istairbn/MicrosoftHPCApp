@@ -37,7 +37,7 @@ try {
 
     debug(stdErr,"Start Script")
 
-    def command = "powershell -File " +  libPath + shellscript 
+    def command = "powershell -Command " +  libPath + shellscript 
 
 
     debug(stdErr,"Command: " + command)
