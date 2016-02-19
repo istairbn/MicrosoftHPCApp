@@ -1,16 +1,8 @@
-[CmdletBinding()]
-Param(
-[Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-[int]
-$Wait = 30,
+﻿[CmdletBinding()]Param([Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][int]$Wait = 30,
 
-[Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-[string]
-$Delimiter = "|",
+[Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][string]$Delimiter = "|",
 
-[Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-[String]
-$Scheduler = $env:CCP_SCHEDULER
+[Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][String]$Scheduler = $env:CCP_SCHEDULER
 )
 
 Try{
@@ -18,15 +10,7 @@ Try{
     Import-Module -Name .\lib\MicrosoftHPCServerTools.psm1  -Force -ErrorAction SilentlyContinue
     Import-Module -Name .\deployed-bundles\MicrosoftHPCApp-2.0\lib\MicrosoftHPCServerTools.psm1 -Force 
     Add-PSSnapin Microsoft.hpc
-}
-
-Catch [System.Exception]{
-
-    Write-Error $Error.ToString()
-    $Error.Clear()
-    Exit
-}
-
+}Catch [System.Exception]{    Write-Error $Error.ToString()    $Error.Clear()    Exit}
 <#
 Timestamp|Id|Template|Priority|NodeGroups|OrderBy|State|Name|Owner|RunAsUser|Project|RequestedNodes
 |ExcludedNodes|AllocatedNodes|CurrentAllocation|Exclusive|RunUntilCanceled|PendingReason|ErrorMessage|FailOnTaskFail

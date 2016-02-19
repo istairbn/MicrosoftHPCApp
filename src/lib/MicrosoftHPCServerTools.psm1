@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------------------------------------------------#
+﻿#-------------------------------------------------------------------------------------------------------------------#
 #Script: MicrosoftHPCServerTools.psm1                                                                               #
 #Author: Benjamin Newton - Excelian                                                                                 #
 #Version 2.0.0                                                                                                      #
@@ -1011,7 +1011,7 @@ Function Sync-HPCClusterJobAndNodeTemplates{
 
     Try{
         $JobNodeTemplateMap = @{}
-        $Status= Get-HPCClusterStatus -Scheduler $Scheduler -LogFilePrefix $LogFilePrefix -JobState "Queued" -Logging $Logging -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes 
+        $Status= Get-HPCClusterStatus -Scheduler $Scheduler -LogFilePrefix $LogFilePrefix -JobState "Queued,Running" -Logging $Logging -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes 
         $TempGroupMap = Export-HPCClusterDefaultGroupFromTemplate -Scheduler $Scheduler
 
         Foreach($JTemp in $Status.BusyJobTemplates){
@@ -1345,7 +1345,7 @@ Function Get-HPCClusterNodesRequired{
         $Nodes = @($Nodes | ? { $Status.ExcludedNodes -notcontains $_.NetBiosName})
         $Nodes = @($Nodes | ? { $Status.ExcludedNodeTemplates -notcontains $_.Template})
 
-        Write-Output $Nodes
+        Write-Output $Nodes | Sort-Object @{expression="ProcessorCores";Descending=$True},@{expression="NodeState";Ascending=$True},@{expression="Memory";Descending=$True}
 }
 #Returns a collection of Node objects that can be passed to Start-HPCClusterNodes
 
@@ -2146,8 +2146,8 @@ Function Convert-HPCClusterTemplate{
 
                 $NodeNames = $NodesToGrow.NetBiosName
                 $TempName =  $Status.BusyNodeTemplates
-                $NodeTempObjs = Get-HpcNodeTemplate -Scheduler $Scheduler -Name $Status.BusyNodeTemplates
-                $JobTempObjs = Get-HpcJobTemplate -Scheduler $Scheduler -Name $Status.BusyJobTemplates
+                $NodeTempObjs = Get-HpcNodeTemplate -Scheduler $Scheduler -Name $Status.BusyNodeTemplates.split(",")
+                $JobTempObjs = Get-HpcJobTemplate -Scheduler $Scheduler -Name $Status.BusyJobTemplates.split(",")
                 $TemplateMap = Export-HPCClusterDefaultGroupFromTemplate -Scheduler $Scheduler -Templates $JobTempObjs -LogFilePrefix $LogFilePrefix -Logging $Logging
                 $NodeJobMap = Sync-HPCClusterJobAndNodeTemplates -Scheduler $Scheduler -LogFilePrefix $LogFilePrefix -Logging $Logging -ExcludedNodes $ExcludedNodes -ExcludedNodeTemplates $ExcludedNodeTemplates 
                 Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:CALCULATING Ratio:$Ratio"
@@ -2179,7 +2179,6 @@ Function Convert-HPCClusterTemplate{
                     Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:MULTITEMPLATECHANGE Templates:$TempName  Nodes:$NodeNames CoresPerTemplate:$CoresPerTemplate"
                 
                     Foreach($JTemplate in $JobTempObjs){
-                    
                         $NodeToAssign = @()
                         $AssginedNames = @()
                         $CoresAssigned = 0
@@ -2393,7 +2392,7 @@ Function Get-HPCClusterIdleDifferentNodes{
     $State = Get-HPCClusterStatus -Scheduler $Scheduler -LogFilePrefix $LogFilePrefix -Logging $Logging -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -ExcludedGroups $ExcludedGroups
 
     If($State.IdleNodes.Count -ne 0){
-        $NodesAvailable = Get-HpcNode -Scheduler $Scheduler -Name $State.IdleNodes -GroupName $NodeGroup -HealthState OK,Unapproved -ErrorAction SilentlyContinue | Sort-Object -Property ProcessorCores,Memory -Descending
+        $NodesAvailable = Get-HpcNode -Scheduler $Scheduler -Name $State.IdleNodes -GroupName $NodeGroup -HealthState OK,Unapproved -ErrorAction SilentlyContinue | Sort-Object @{expression="ProcessorCores";Descending=$True},@{expression="NodeState";Ascending=$True},@{expression="Memory";Descending=$True}
         $UniqueGroups = @()
         $UnqiueNodes = @()
         $NodesToGrow = @()
@@ -2701,8 +2700,10 @@ Param(
     }
     Else{
         Write-LogInfo "Action:NOTHING GrowState:False"
+        $Grow = $False
     }
-    Write-Output $HasGrown
+    $Obj = New-Object -Type PSObject -Property @{Scheduler=$Scheduler;HasGrown=$HasGrown;NeedsToGrow=$Grow}
+    Return $Obj
 }
 #A Hybrid cluster scale up. First, it will attempt to use any available on premise nodes. If none are available, it will use the Azure Nodes. This only increases, it does not attempt to decrease. Not a loop!
 
@@ -3016,6 +3017,10 @@ Function Invoke-HPCClusterSwitchNodesToRequiredTemplate{
     $Logging=$False,
 
     [Parameter (Mandatory=$False)]
+    [int]
+    $NodeGrowth=5,
+
+    [Parameter (Mandatory=$False)]
     [String]
     $LogFilePrefix,
 
@@ -3042,8 +3047,8 @@ Function Invoke-HPCClusterSwitchNodesToRequiredTemplate{
         $CurrentState = Get-HPCClusterStatus -LogFilePrefix $LogFilePrefix -Logging $Logging -Scheduler $Scheduler -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -ExcludedGroups $ExcludedGroups -jobTemplates $JobTemplates
         If($CurrentState.IdleNodes.Count -ne 0 ){
         
-            $ReadyCheck = Get-HPCClusterIdleReadyNodes -Logging $Logging -LogFilePrefix $LogFilePrefix -ExcludedGroups $ExcludedGroups -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -Scheduler $Scheduler
-            $ChangeCheck = Get-HPCClusterIdleDifferentNodes -Logging $Logging -LogFilePrefix $LogFilePrefix -ExcludedGroups $ExcludedGroups -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -NodeGroup $NodeGroup -Scheduler $Scheduler
+            $ReadyCheck = Get-HPCClusterIdleReadyNodes -Logging $Logging -LogFilePrefix $LogFilePrefix -ExcludedGroups $ExcludedGroups -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -Scheduler $Scheduler 
+            $ChangeCheck = Get-HPCClusterIdleDifferentNodes -Logging $Logging -LogFilePrefix $LogFilePrefix -ExcludedGroups $ExcludedGroups -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -NodeGroup $NodeGroup -Scheduler $Scheduler -NodeGrowth $NodeGrowth
             If($ReadyCheck){
                 Write-LogInfo "Required Nodes Available"
             }
@@ -3278,113 +3283,11 @@ Function Optimize-HPCCluster{
 #Yes... this doesn't quite work. In theory, if the Cluster is overworked, it's meant to take an even amount of Nodes offline, and then let the cluster balance itself using Convert-HPCClusterTemplate....
 #endregion
 
-#region Reporting
-Function Get-HPCClusterJobHistoryOutput{
-    <#
-        .Synopsis
-        This function get's the previous history of the HPC Cluster Jobs
-
-        .Parameter LastKnownPositionFile
-        Name of the file that records the tiem the records were last collected. Prevents duplicate data. If not present, goes for the standard loop 
-
-        .PositionFolder
-        The directory where the LastKnownPositionFile is stored - so you can locate it where you wish
-
-        .Parameter Duration
-        Choose the frequency of collections in seconds. Minimum 5400 seconds
-        
+#region ReportingFunction Get-HPCClusterJobHistoryOutput{    <#        .Synopsis        This function get's the previous history of the HPC Cluster Jobs        .Parameter LastKnownPositionFile        Name of the file that records the tiem the records were last collected. Prevents duplicate data. If not present, goes for the standard loop         .PositionFolder        The directory where the LastKnownPositionFile is stored - so you can locate it where you wish        .Parameter Duration        Choose the frequency of collections in seconds. Minimum 5400 seconds        
         .Parameter Scheduler
-        Determines the scheduler used - defaults to the environment variable
-        
-        .Parameter Delimiter
-        Choose the string to delimit the output with
-
-        .Example
-        Get-HPCClusterJobHistoryOutput -Delimiter ","
-        .Notes
-
-        .Link
-        www.excelian.com
-    #>    
-
-        [CmdletBinding()]
-        Param(
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
+        Determines the scheduler used - defaults to the environment variable                .Parameter Delimiter        Choose the string to delimit the output with        .Example        Get-HPCClusterJobHistoryOutput -Delimiter ","        .Notes        .Link        www.excelian.com    #>            [CmdletBinding()]        Param(        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
         [string]
-        $Scheduler = $env:CCP_SCHEDULER,
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [String]
-        $PositionFolder = "..\HPCAppRecords_DONOTDELETE\$Scheduler",
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [string]
-        $LastKnownPositionFile = ".\JobHistory_LastKnownPosition",
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [int]
-        [ValidateRange(5400, [int]::MaxValue)]
-        $Duration = "5400",
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [int]
-        [ValidateRange(1, [int]::MaxValue)]
-        $InitialCollection = "90",
-
-        [Parameter(Mandatory=$False)]
-        $Delimiter="|"
-
-        )
-
-        Try{
-            $ErrorActionPreference = "SilentlyContinue"
-            $WarningPreference = "SilentlyContinue"
-            Add-PSSnapIn Microsoft.HPC;
-        }
-        Catch [System.Exception]{
-            Write-Error $Error.ToString()
-            $Error.Clear()
-            Break
-        }
-
-        $duration = 5400
-
-        If(Test-Path $PositionFolder){Write-Verbose "$PositionFolder Exists"}
-        Else{$X = New-Item $PositionFolder -Type Directory}
-
-        $LastKnownPositionFile = $PositionFolder + "\" + $LastKnownPositionFile
-
-        If($SINCE = Get-Content $LastKnownPositionFile){
-            Write-Verbose "$LastKnownPositionFile Exists"
-            Remove-Item $LastKnownPositionFile
-        }
-        Else{
-            Write-Verbose "First Time Run"
-            $SINCE = (Get-Date).AddDays(-90)
-        }
-        
-        $NOW = (Get-Date).addSeconds(-1 * $duration)
-        $NOW = $NOW.ToString("dd/MM/yyyy HH:mm:ss")
-	    Write-Verbose "SinceDate $SINCE"  
-        Write-Verbose "NowDate $NOW"
-        
-        Try{
-            Write-Verbose "Collection"
-            Get-HPCJobHistory -Scheduler $Scheduler -StartDate $SINCE -EndDate $NOW #-verbose
-        }
-        Catch [System.Exception]{
-            Write-Error $Error.ToString()
-            $Error.Clear()
-        }
-
-        Write-Output $NOW >> $LastKnownPositionFile
-	    Write-Verbose "LastKnownPositionFileUpdated"
-
-}
-#Returns Job History Objects
-
-Function Export-HPCClusterFullJobHistory{
+        $Scheduler = $env:CCP_SCHEDULER,        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [String]        $PositionFolder = "..\HPCAppRecords_DONOTDELETE\$Scheduler",        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [string]        $LastKnownPositionFile = ".\JobHistory_LastKnownPosition",        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [int]        [ValidateRange(5400, [int]::MaxValue)]        $Duration = "5400",        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [int]        [ValidateRange(1, [int]::MaxValue)]        $InitialCollection = "90",        [Parameter(Mandatory=$False)]        $Delimiter="|"        )        Try{            $ErrorActionPreference = "SilentlyContinue"            $WarningPreference = "SilentlyContinue"            Add-PSSnapIn Microsoft.HPC;        }        Catch [System.Exception]{            Write-Error $Error.ToString()            $Error.Clear()            Break        }        $duration = 5400        If(Test-Path $PositionFolder){Write-Verbose "$PositionFolder Exists"}        Else{$X = New-Item $PositionFolder -Type Directory}        $LastKnownPositionFile = $PositionFolder + "\" + $LastKnownPositionFile        If($SINCE = Get-Content $LastKnownPositionFile){            Write-Verbose "$LastKnownPositionFile Exists"            Remove-Item $LastKnownPositionFile        }        Else{            Write-Verbose "First Time Run"            $SINCE = (Get-Date).AddDays(-90)        }                $NOW = (Get-Date).addSeconds(-1 * $duration)        $NOW = $NOW.ToString("dd/MM/yyyy HH:mm:ss")	    Write-Verbose "SinceDate $SINCE"          Write-Verbose "NowDate $NOW"                Try{            Write-Verbose "Collection"            Get-HPCJobHistory -Scheduler $Scheduler -StartDate $SINCE -EndDate $NOW #-verbose        }        Catch [System.Exception]{            Write-Error $Error.ToString()            $Error.Clear()        }        Write-Output $NOW >> $LastKnownPositionFile	    Write-Verbose "LastKnownPositionFileUpdated"}#Returns Job History ObjectsFunction Export-HPCClusterFullJobHistory{
 <#
     .Synopsis
     This collects the recent Job History and adds data from the SQL database to give accurate task times. 
@@ -3393,104 +3296,17 @@ Function Export-HPCClusterFullJobHistory{
     Where the timestamp record should be stored
 
     .Parameter LastKnownPositionFile
-    The name of the timestamp record
-
-    .Parameter Delimiter
-    What should the delimiter be
-
-    .Parameter Scheduler
-    Which scheduler should be tapped for the history
-
-    .Example
-    Export-HPCClusterFullJobHistory -LastKnownPositionFile "Output.txt"
-#>
-        [CmdletBinding()]
-        Param(
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
+    The name of the timestamp record    .Parameter Delimiter    What should the delimiter be    .Parameter Scheduler    Which scheduler should be tapped for the history    .Example    Export-HPCClusterFullJobHistory -LastKnownPositionFile "Output.txt"#>        [CmdletBinding()]        Param(        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
         [string]
-        $Scheduler = $env:CCP_SCHEDULER,
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [String]
-        $PositionFolder = "..\HPCAppRecords_DONOTDELETE\$Scheduler",
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [string]
-        $LastKnownPositionFile = ".\JobHistory_LastKnownPosition",
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [int]
-        [ValidateRange(5400, [int]::MaxValue)]
-        $Duration = "5400",
-
-        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-        [int]
-        [ValidateRange(1, [int]::MaxValue)]
-        $InitialCollection = "90",
-
-        [Parameter(Mandatory=$False)]
-        $Delimiter="|"
-
-        )
+        $Scheduler = $env:CCP_SCHEDULER,        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [String]        $PositionFolder = "..\HPCAppRecords_DONOTDELETE\$Scheduler",        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [string]        $LastKnownPositionFile = ".\JobHistory_LastKnownPosition",        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [int]        [ValidateRange(5400, [int]::MaxValue)]        $Duration = "5400",        [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]        [int]        [ValidateRange(1, [int]::MaxValue)]        $InitialCollection = "90",        [Parameter(Mandatory=$False)]        $Delimiter="|"        )
    
     Try{
         Import-Module -Name .\MicrosoftHPCServerTools.psm1 -ErrorAction SilentlyContinue -Force
         Add-PSSnapin Microsoft.hpc
         Set-Culture EN-GB
-    }
-
-    Catch [System.Exception]{
-        Write-Error $Error.ToString()
-        $Error.Clear()
-    }
-
-    $Output = Get-HPCClusterJobHistoryOutput -Scheduler $Scheduler -LastKnownPositionFile $LastKnownPositionFile -PositionFolder $PositionFolder -Delimiter $Delimiter #-verbose
-
-    If($Output.Count -ne 0){
-        
-        Try{
-            $IdString = ""
-            ForEach($Job in $Output){
-                If($Job.JobId -ne $null){
-                    $Id = $Job.JobID.ToString()
-                    $IdString += "$Id,"
-                }
-            }
-        }
-        Catch [System.Exception] {
-
-        }
-
-        If($IdString.Length -gt 0){
-            $IdString = $IdString.SubString(0,$IdString.Length-1)
-            $TaskTimes = Get-HPCJobTaskTime -ParentJobs $IdString
-            
-
-            ForEach($Job in $Output){
-                If($Job.JobId -ne $null){
-                    $Array = @()
-                    $Id = $Job.JobID.ToString()
-                    $Record = $TaskTimes.Select("ParentJobID=$Id")
-                    $JobJSON = $Job | ConvertTo-Json -Compress
-                    $JobJSON = $JobJSON.Replace("{","").Replace("}",",")
-                    $Array += $JobJSON
-                    $Array += [char]34+"TotalTaskSeconds"+[char]34+":"+[char]34+$Record.Seconds+[char]34+","
-                    $JSON = "{"+$Array+"}"
+    }    Catch [System.Exception]{        Write-Error $Error.ToString()        $Error.Clear()    }    $Output = Get-HPCClusterJobHistoryOutput -Scheduler $Scheduler -LastKnownPositionFile $LastKnownPositionFile -PositionFolder $PositionFolder -Delimiter $Delimiter #-verbose    If($Output.Count -ne 0){                Try{            $IdString = ""            ForEach($Job in $Output){                If($Job.JobId -ne $null){                    $Id = $Job.JobID.ToString()                    $IdString += "$Id,"                }            }        }        Catch [System.Exception] {        }        If($IdString.Length -gt 0){            $IdString = $IdString.SubString(0,$IdString.Length-1)            $TaskTimes = Get-HPCJobTaskTime -ParentJobs $IdString                        ForEach($Job in $Output){                If($Job.JobId -ne $null){                    $Array = @()                    $Id = $Job.JobID.ToString()                    $Record = $TaskTimes.Select("ParentJobID=$Id")                    $JobJSON = $Job | ConvertTo-Json -Compress                    $JobJSON = $JobJSON.Replace("{","").Replace("}",",")                    $Array += $JobJSON                    $Array += [char]34+"TotalTaskSeconds"+[char]34+":"+[char]34+$Record.Seconds+[char]34+","                    $JSON = "{"+$Array+"}"
                     $FinalObject = $JSON.Replace(",}","}") | ConvertFrom-Json
-                    $FinalObject
-                }
-            }
-        }
-    }
-    Else{
-        Write-Verbose "No Job History Found"
-    }
-}
-#Returns Job History with added SQL data from HPCJobTaskTime
-
-Function Get-HPCJobTaskTime{
-    <#
+                    $FinalObject                }            }        }    }    Else{        Write-Verbose "No Job History Found"    }}#Returns Job History with added SQL data from HPCJobTaskTimeFunction Get-HPCJobTaskTime{    <#
         .Synopsis
         This collects the time in Seconds for the sum of all tasks by Job ID
 
@@ -3508,16 +3324,9 @@ Function Get-HPCJobTaskTime{
 
         .Link
         www.excelian.com
-    #>
-    [CmdletBinding()]
-    Param(
+    #>    [CmdletBinding()]    Param(    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]    [String]    $Scheduler = $env:CCP_SCHEDULER,
 
-    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-    [String]
-    $Scheduler = $env:CCP_SCHEDULER,
-
-    [Parameter(Mandatory=$True,ValueFromPipelineByPropertyName=$True)]
-    [String]
+    [Parameter(Mandatory=$True,ValueFromPipelineByPropertyName=$True)]    [String]
     $ParentJobs
 
     )
@@ -3560,11 +3369,7 @@ Function Get-HPCJobTaskTime{
 
     Write-Output $Output
 
-}
-#Returns DataSet - JobID and Total Seconds
-
-Function Get-HPCCoreUtilisation{
-    <#
+}#Returns DataSet - JobID and Total SecondsFunction Get-HPCCoreUtilisation{    <#
         .Synopsis
         This collects the time in Seconds for the sum of all tasks by Job ID
 
@@ -3588,25 +3393,8 @@ Function Get-HPCCoreUtilisation{
 
         .Link
         www.excelian.com
-    #>
-    [CmdletBinding()]
-    Param(
-
-    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-    [String]
-    $Scheduler = $env:CCP_SCHEDULER,
-
-    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-    [String]
-    $PositionFolder = "..\HPCAppRecords_DONOTDELETE\$Scheduler",
-
-    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-    [bool]
-    $OnlyCollectOnce = $True,
-
-    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-    [string]
-    $LastKnownPositionFile = ".\ClusterUsage_LastKnownPosition"
+    #>    [CmdletBinding()]    Param(    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]    [String]    $Scheduler = $env:CCP_SCHEDULER,
+    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]    [String]    $PositionFolder = "..\HPCAppRecords_DONOTDELETE\$Scheduler",    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]    [bool]    $OnlyCollectOnce = $True,    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]    [string]    $LastKnownPositionFile = ".\ClusterUsage_LastKnownPosition"
 
     )
 
@@ -3622,26 +3410,8 @@ Function Get-HPCCoreUtilisation{
         Write-LogError $Error.ToString()
     }
                 
-    #Checking what dates we need to run
-    If($OnlyCollectOnce -eq $True){
-
-        If(Test-Path $PositionFolder){Write-Verbose "$PositionFolder Exists"}
-        Else{New-Item $PositionFolder -Type Directory }
-
-        $LastKnownPositionFile = $PositionFolder + "\" + $LastKnownPositionFile
-
-        If($Since = Get-Content $LastKnownPositionFile -ErrorAction SilentlyContinue){
-            Write-Verbose "$LastKnownPositionFile Exists"
-            Write-Verbose "Since Date $Since"
-            Remove-Item $LastKnownPositionFile
-        }
-        Else{
-            Write-Verbose "First Time Run"
-        }
-    
-        $Now = (Get-Date).AddDays(-1)  
-        $Now = $Now.ToString("yyyy/MM/dd")
-	    Write-Verbose "NowDate $Now"
+    #Checking what dates we need to run    If($OnlyCollectOnce -eq $True){        If(Test-Path $PositionFolder){Write-Verbose "$PositionFolder Exists"}        Else{New-Item $PositionFolder -Type Directory }        $LastKnownPositionFile = $PositionFolder + "\" + $LastKnownPositionFile        If($Since = Get-Content $LastKnownPositionFile -ErrorAction SilentlyContinue){            Write-Verbose "$LastKnownPositionFile Exists"            Write-Verbose "Since Date $Since"            Remove-Item $LastKnownPositionFile        }        Else{            Write-Verbose "First Time Run"        }            $Now = (Get-Date).AddDays(-1)  
+        $Now = $Now.ToString("yyyy/MM/dd")	    Write-Verbose "NowDate $Now"
 
     }
     if($Since -eq $null){
@@ -3697,36 +3467,11 @@ Function Get-HPCCoreUtilisation{
     Write-Output $Output
     If($OnlyCollectOnce -eq $True) {Write-Output $NOW >> $LastKnownPositionFile} 
 
-}
-#Returns DataSet - Containing Core Utilisation Details
-
+}#Returns DataSet - Containing Core Utilisation Details
 Function ConvertTo-LogscapeJSON{
-        <#
-            .Synopsis
-            This converts an object to a Logscape compatibile JSON String, plus a timestamp
-        
-            .Parameter Input
-            The Object needing conversion
+        <#            .Synopsis            This converts an object to a Logscape compatibile JSON String, plus a timestamp                    .Parameter Input            The Object needing conversion            .Parameter NoDate            Remove Timestamp - Boolean            .Example            Get-HpcClusterOverview | ConvertTo-LogscapeJSON            .Notes            .Link            www.excelian.com        #>        [CmdletBinding()]    Param(    [Parameter(Mandatory=$True,ValueFromPipeline=$True)]    [System.Object]    $Input,
 
-            .Parameter NoDate
-            Remove Timestamp - Boolean
-
-            .Example
-            Get-HpcClusterOverview | ConvertTo-LogscapeJSON
-            .Notes
-
-            .Link
-            www.excelian.com
-        #>    
-    [CmdletBinding()]
-    Param(
-    [Parameter(Mandatory=$True,ValueFromPipeline=$True)]
-    [System.Object]
-    $Input,
-
-    [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
-    [bool]
-    $Timestamp = $True
+    [Parameter(Mandatory=$False,ValueFromPipeline=$True)]    [bool]    $Timestamp = $True
     )
 
     If($Input.Count -ne 0){
@@ -3766,48 +3511,14 @@ Function ConvertTo-LogscapeJSON{
 
         Write-Output $OutString
 
-    }
-}
-#Converts to Logscape compatible JSON
+    }}#Converts to Logscape compatible JSONFunction ConvertTo-LogscapeCSV{
+    <#        .Synopsis        This converts an object to a Logscape compatibile CSV String, plus a timestamp                .Parameter Input        The Object needing conversion        .Parameter NoDate        If True, strips the timestamp from the front        .Parameter AddHeaders        A boolean, defaults to false. Standard Powershell CSV export pumps out headers each time - unsuitable for Logging purposes. Leave as false unless you want them!        .Example        Get-HpcClusterOverview | ConvertTo-LogscapeJSON        .Notes        .Link        www.excelian.com    #>        [CmdletBinding()]    Param(        [Parameter(Mandatory=$True,ValueFromPipeline=$True)]        [System.Object]        $Input,
 
-Function ConvertTo-LogscapeCSV{
-    <#
-        .Synopsis
-        This converts an object to a Logscape compatibile CSV String, plus a timestamp
-        
-        .Parameter Input
-        The Object needing conversion
+        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]        [bool]        $TimeStamp = $True,
 
-        .Parameter NoDate
-        If True, strips the timestamp from the front
+        [Parameter(Mandatory=$False)]        [string]        $Delimiter = ",",
 
-        .Parameter AddHeaders
-        A boolean, defaults to false. Standard Powershell CSV export pumps out headers each time - unsuitable for Logging purposes. Leave as false unless you want them!
-
-        .Example
-        Get-HpcClusterOverview | ConvertTo-LogscapeJSON
-        .Notes
-
-        .Link
-        www.excelian.com
-    #>    
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$True,ValueFromPipeline=$True)]
-        [System.Object]
-        $Input,
-
-        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
-        [bool]
-        $TimeStamp = $True,
-
-        [Parameter(Mandatory=$False)]
-        [string]
-        $Delimiter = ",",
-
-        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]
-        [bool]
-        $AddHeaders=$False
+        [Parameter(Mandatory=$False,ValueFromPipeline=$True)]        [bool]        $AddHeaders=$False
         )
     If($Input -ne $Null){
         $STAMP = Get-Date -Format "yyyy/MM/dd HH:mm:ss zzz"
@@ -3824,24 +3535,8 @@ Function ConvertTo-LogscapeCSV{
         }
         Write-Output $OutString 
     }
-}
-#Converts to Logscape compatible CSV
-
-Function ConvertFrom-UnixTime{
-    <#
-        .Synopsis
-        This converts a Unix time uinto a Powershell Date object
-        
-        .Parameter UnixTime
-        The Unix Time needing conversion
-
-        .Example
-        Convert-From-UnixTime
-        .Notes
-
-        .Link
-        www.excelian.com
-    #>    
+}#Converts to Logscape compatible CSVFunction ConvertFrom-UnixTime{
+    <#        .Synopsis        This converts a Unix time uinto a Powershell Date object                .Parameter UnixTime        The Unix Time needing conversion        .Example        Convert-From-UnixTime        .Notes        .Link        www.excelian.com    #>    
 
     [CmdletBinding()]
     
@@ -3855,5 +3550,4 @@ Function ConvertFrom-UnixTime{
     $ReadableDate = $origin.AddMilliseconds($UnixTime)
 
     Write-Output $ReadableDate
-}
-#endregion
+}#endregion

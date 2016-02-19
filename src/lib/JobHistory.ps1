@@ -1,8 +1,4 @@
-[CmdletBinding()]
-Param(
-[Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
-[String]
-$Scheduler = $env:CCP_SCHEDULER,
+[CmdletBinding()]Param([Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][String]$Scheduler = $env:CCP_SCHEDULER,
 
 [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
 [string]
@@ -14,13 +10,7 @@ Try{
     Import-Module -Name .\lib\MicrosoftHPCServerTools.psm1  -Force -ErrorAction SilentlyContinue
     Import-Module -Name .\deployed-bundles\MicrosoftHPCApp-2.0\lib\MicrosoftHPCServerTools.psm1 -Force -ErrorAction SilentlyContinue
     Add-PSSnapin Microsoft.hpc
-}
-
-Catch [System.Exception]{
-    Write-Error $Error.ToString()
-    $Error.Clear()
-    Exit
-}
+}Catch [System.Exception]{    Write-Error $Error.ToString()    $Error.Clear()    Exit}
 Set-Culture EN-GB
 $Output = Export-HPCClusterFullJobHistory -Scheduler $Scheduler -PositionFolder $PositionFolder #-verbose
 <#

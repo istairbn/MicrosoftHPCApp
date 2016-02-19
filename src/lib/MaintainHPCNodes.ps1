@@ -1,4 +1,4 @@
-Add-PsSnapin microsoft.hpc
+﻿Add-PsSnapin microsoft.hpc
 
 While (1){
     $NodesToTurnOff = Get-HpcNode -HealthState Error -State Online -ErrorAction SilentlyContinue
