@@ -15,8 +15,10 @@ Try{
     Import-Module -Name .\deployed-bundles\MicrosoftHPCApp-2.0\lib\MicrosoftHPCServerTools.psm1 -ErrorAction SilentlyContinue -Force
     Add-PSSnapin Microsoft.hpc
 }Catch [System.Exception]{    Write-Error $Error.ToString()    $Error.Clear()}
+$elapsed = [System.Diagnostics.Stopwatch]::StartNew()
+Write-LogInfo "Starting Monitoring"
 
-While(1){
+While($elapsed.Elapsed.Hours -lt 2){
     $collections = @()
     $collections += Get-HpcClusterOverview -Scheduler $Scheduler -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 
     $Collections += Get-HPCClusterStatus -Scheduler $Scheduler | Select-Object ClusterName,AvailableComputeCores,PercentComputeCoresUtilised,PercentComputeCoresUnutilised,PercentTotalCoresAvailable,PercentTotalCoresUnavailable

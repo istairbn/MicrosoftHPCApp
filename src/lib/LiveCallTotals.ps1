@@ -17,7 +17,10 @@ Try{
     Import-Module -Name .\deployed-bundles\MicrosoftHPCApp-2.0\lib\MicrosoftHPCServerTools.psm1 -Force 
     Add-PSSnapin Microsoft.hpc
 }Catch [System.Exception]{    Write-Error $Error.ToString()    $Error.Clear()}
-While(1){
+$elapsed = [System.Diagnostics.Stopwatch]::StartNew()
+Write-LogInfo "Starting Monitoring"
+
+While($elapsed.Elapsed.Hours -lt 2){
     Get-HPCClusterWorkload -Scheduler $Scheduler | ConvertTo-LogscapeJSON
 
     Sleep($Wait)

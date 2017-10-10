@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]Param([Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][int]$Wait = 30,
+﻿[CmdletBinding()]Param([Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][int]$Wait = 60,
 
 [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)][string]$Delimiter = "|",
 
@@ -10,8 +10,7 @@ Try{
     Import-Module -Name .\lib\MicrosoftHPCServerTools.psm1  -Force -ErrorAction SilentlyContinue
     Import-Module -Name .\deployed-bundles\MicrosoftHPCApp-2.0\lib\MicrosoftHPCServerTools.psm1 -Force 
     Add-PSSnapin Microsoft.hpc
-}Catch [System.Exception]{    Write-Error $Error.ToString()    $Error.Clear()    Exit}
-<#
+}Catch [System.Exception]{    Write-Error $Error.ToString()    $Error.Clear()    Exit}<#
 Timestamp|Id|Template|Priority|NodeGroups|OrderBy|State|Name|Owner|RunAsUser|Project|RequestedNodes
 |ExcludedNodes|AllocatedNodes|CurrentAllocation|Exclusive|RunUntilCanceled|PendingReason|ErrorMessage|FailOnTaskFail
 ure|Preemptable|MinMemoryPerNode|ParentJobIds|ChildJobIds|FailDependentTasks|MaxMemoryPerNode|MinCoresPerNode|MaxCor
@@ -23,7 +22,10 @@ gCalls|CallDuration|CallsPerSecond|NumberOfTasks|ConfiguringTasksCount|QueuedTas
 sksCount|FailedTasksCount|CanceledTasksCount|JSON With JobEnv JobCustomProperties
 #>
 
-While(1){
+$elapsed = [System.Diagnostics.Stopwatch]::StartNew()
+Write-LogInfo "Starting Monitoring"
+
+While($elapsed.Elapsed.Hours -lt 2){
     $OUT = Get-HPCClusterActiveJobs -Scheduler $Scheduler 
     ForEach($Line in $OUT){
         $Output1 = $Line | Select-Object * -ExcludeProperty JobEnv,JobCustomProperties  | ConvertTo-LogscapeCSV -Delimiter $Delimiter 

@@ -1,4 +1,6 @@
-﻿<#        .Synopsis        This script automatically scales Azure Nodes        .Parameter Scheduler
+﻿<#        .Synopsis        This script automatically scales Azure Nodes        
+        
+        .Parameter Scheduler
         Determines the scheduler used - defaults to the environment variable                .Example        Azure Node Balancer.ps1        .Notes                 .Link        www.excelian.com#>    [CmdletBinding()]Param(    [Parameter(Mandatory=$False,ValueFromPipelineByPropertyName=$True)]
     [string]
     $Scheduler = $env:CCP_SCHEDULER,
@@ -28,7 +30,7 @@
     [Parameter (Mandatory=$False)]
     [ValidateRange(0,[Int]::MaxValue)]
     [Int] 
-    $TemplateSwitchNodeGrowth=3,
+    $TemplateSwitchNodeGrowth=4,
 
     [Parameter (Mandatory=$False)]
     [ValidateRange(0,[Int]::MaxValue)]
@@ -86,7 +88,7 @@
 Try{
     Import-Module -Name .\MicrosoftHPCServerTools.psm1  -Force -ErrorAction SilentlyContinue
     Import-Module -Name .\lib\MicrosoftHPCServerTools.psm1  -Force -ErrorAction SilentlyContinue
-    Import-Module -Name .\deployed-bundles\MicrosoftHPCApp-2.0\lib\MicrosoftHPCServerTools.psm1 -Force -ErrorAction SilentlyContinue
+    Import-Module -Name .\deployed-bundles\HPCHybridAutoScalerApp-2.0\lib\MicrosoftHPCServerTools.psm1 -Force -ErrorAction SilentlyContinue
     Add-PSSnapin Microsoft.hpc
 }Catch [System.Exception]{    Write-LogError $Error.ToString()    $Error.Clear()}$elapsed = [System.Diagnostics.Stopwatch]::StartNew()
 Write-LogInfo "Starting Autoscaling"
@@ -109,6 +111,8 @@ Write-Output "Scheduler:$Scheduler
         ShrinkThreshold:$ShrinkThreshold
         Logging:$Logging
         LogFilePrefix:$LogFilePrefix"
+        
+$NodesToRemoveMap = @{}
 
 While($elapsed.Elapsed.Hours -lt 1){
 
@@ -145,31 +149,68 @@ While($elapsed.Elapsed.Hours -lt 1){
     $ShrinkCheck = Get-HPCClusterShrinkCheck -Scheduler $Scheduler -LogFilePrefix $LogFilePrefix -Logging $Logging -NodeGroup $NodeGroup -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -ExcludedGroups $ExcludedGroups -NodeTemplates $NodeTemplates
     
     If($ShrinkCheck.Shrink -eq $True){
-        $IdleNodeCount = $ShrinkCheck.IdleNodes.Count
-        If($PreviousIdleNodeCount -ne $IdleNodeCount){
-            $PreviousIdleNodeCount = $IdleNodeCount
-            $COUNTER = 0
-            Write-LogInfo "Counter:$COUNTER ShrinkThreshold:$ShrinkThreshold IdleNodes:$IdleNodeCount Action:NODECOUNTCHANGE" 
-        }
-        Else{
-            $COUNTER += 1
-            Write-LogInfo "Counter:$COUNTER  ShrinkThreshold:$ShrinkThreshold IdleNodes:$IdleNodeCount Action:NODECOUNTCONSTANT"
-        }
-    }
-    Else{
-        $PreviousIdleNodeCount = 0
-        Write-LogInfo "Action:NOTHING"
-    }
-    $SHRINK = $False
 
-    If($ShrinkCheck.SHRINK -eq $True -and $Counter -gt $ShrinkThreshold){
-        $SHRINK = $True
-    }
+        $State = Get-HPCClusterStatus -LogFilePrefix $LogFilePrefix -Logging $Logging -Scheduler $Scheduler -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -ExcludedGroups $ExcludedGroups 
+        $TurnOffIfPossible = Get-HPCNode -State Online -Name $State.IdleNodes -ErrorAction SilentlyContinue -Scheduler $Scheduler 
+        $IgnoreTheseNodes = @(Get-HpcNode -State Offline -ErrorAction SilentlyContinue -Scheduler $Scheduler)
     
-    If($SHRINK -eq $True){
-        Invoke-HPCClusterHybridShrink -LogFilePrefix $LogFilePrefix -Logging $Logging -Scheduler $Scheduler -ExcludedNodeTemplates $ExcludedNodeTemplates -ExcludedNodes $ExcludedNodes -UndeployAzure $UndeployAzure -NodeTemplates $NodeTemplates
-    }
+        If($State.BusyNodes -ne 0){
+            $IgnoreTheseNodes += Get-HPCNode -Name $State.BusyNodes -ErrorAction SilentlyContinue -Scheduler $Scheduler
+        }
 
+        ForEach($Node in $TurnOffIfPossible){
+    
+            If($NodeOfInterest = $NodesToRemoveMap.Get_Item($Node.NetBiosName)){
+                $NodeOfInterest += 1
+                $NodesToRemoveMap.Set_Item($Node.NetBiosName,$NodeOfInterest)
+        
+            }
+
+            Else{
+                $NodesToRemoveMap.Add($Node.NetBiosName,1)
+            }
+        }
+
+        If($NodesToRemoveMap.Count -ne 0){
+            $Output = $NodesToRemoveMap | ConvertTo-LogscapeJSON -Timestamp $False
+            Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message "NodeShrinkCounter $Output"
+        }
+
+        ForEach($Node in $IgnoreTheseNodes){
+    
+            If($NodeOfInterest = $NodesToRemoveMap.Get_Item($Node.NetBiosName)){
+                $NodesToRemoveMap.Remove($Node.NetBiosName)
+        
+            }
+
+        }
+
+        $NodesToTurnOffline = @()
+
+
+        If($NodesToRemoveMap.Count -ne 0){
+         
+            ForEach($item in $NodesToRemoveMap.GetEnumerator()){
+                #If time to Shrink add to NodesToTurnOffline
+                If($item.value -ge $ShrinkThreshold){
+                    $NodesToTurnOffline += $Item.key
+                }
+            }
+            If($NodesToTurnOffline.Count -ne 0){
+                
+                ForEach($Node in $NodesToTurnOffline){$NodesToRemoveMap.Remove($Node)}
+
+                $idleNodes = @() 
+                $idleNodes = Get-HpcNode -Name $NodesToTurnOffline
+                Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message "ShrinkThreshold Exceeded Nodes:$NodesToTurnOffline"
+                Set-HPCClusterNodesUndeployedOrOffline -idleNodes $idleNodes -LogFilePrefix $LogFilePrefix -Logging $Logging -Scheduler $Scheduler
+            }
+            Else{
+                Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message "ShrinkThreshold not exceeded"
+            }
+        }
+
+    }
     sleep $Sleep
 
 }
