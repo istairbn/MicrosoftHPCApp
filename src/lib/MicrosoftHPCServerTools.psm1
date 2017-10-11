@@ -921,7 +921,8 @@ Function Get-HPCClusterStatus {
         $IdleNodes = @()
         $IdleJobTemplates = @()
         $IdleNodeTemplates = @()
-        $NodeMasterList = Get-HpcNode -Scheduler $Scheduler -HealthState OK -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        $NodeMasterList = @()
+        $NodeMasterList += Get-HpcNode -Scheduler $Scheduler -HealthState OK -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         $NodeMasterList += Get-HpcNode -Scheduler $Scheduler -HealthState Unapproved -GroupName AzureNodes -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         $GroupMasterList = Get-HpcGroup -Scheduler $Scheduler -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
         $PoolMasterList = Get-HpcPool -Scheduler $Scheduler -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
@@ -1957,11 +1958,31 @@ Function Start-HPCClusterNodes{
                     Set-HpcNodeState -Scheduler $Scheduler -State online -Node $OfflineTargetNodes -ErrorAction SilentlyContinue -Verbose 
                 }
 
-                if ( $UndeployedTargetNodes.Count -ne 0) {
-                    Start-HpcAzureNode -Scheduler $Scheduler -Node $UndeployedTargetNodes -Async $false -ErrorAction SilentlyContinue -Verbose
-                    sleep 20
+       if ( $UndeployedTargetNodes.Count -ne 0) {
+
+            Start-HpcAzureNode -Scheduler $Scheduler -Node $UndeployedTargetNodes -Async $true -ErrorAction SilentlyContinue -Verbose                    
+            sleep 20
+
+            $Provisioning = $UndeployedTargetNodes | Where NodeState -match "Provisioning"
+
+            $ISW = [System.Diagnostics.Stopwatch]::StartNew()
+            
+            While ( $Provisioning.count -ne 0 ) { 
+                $Offline = $UndeployedTargetNodes | Where NodeState -match "Offline"
+
+                If ( $Offline.Count -ne 0 ) {
+                    Write-Verbose "Node ready!"
                     Set-HpcNodeState -Scheduler $Scheduler -State online -Node $UndeployedTargetNodes -ErrorAction SilentlyContinue -Verbose  
                 }
+                
+                Sleep 10
+                $Provisioning = $UndeployedTargetNodes | Where NodeState -match "Provisioning"
+            } 
+
+            Write-Verbose "$($ISW.Elapsed.TotalMinutes) Minutes"
+            Set-HpcNodeState -Scheduler $Scheduler -State online -Node $UndeployedTargetNodes -ErrorAction SilentlyContinue -Verbose  
+         }
+
                 $GrowthSuccess = $True
                 Write-LogInfo -Logging $Logging -LogFilePrefix $LogFilePrefix -message  "Action:GROWN GrowthSuccess:$GrowthSuccess Msg:`"Node Growth Complete`""
             }
